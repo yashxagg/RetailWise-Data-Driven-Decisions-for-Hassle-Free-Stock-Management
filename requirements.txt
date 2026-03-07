@@ -1,0 +1,8 @@
+mysql-connector-python
+pandas
+PyPDF2
+groq
+python-dotenv
+streamlit
+SpeechRecognition
+pyaudio
