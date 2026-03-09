@@ -45,14 +45,33 @@ def handle_natural_query(user_query):
         df = pd.read_sql(sql_query, conn)
         conn.close()
         
-        # 3. Explain Answer
+        # 3. Explain Answer using AI
         if df.empty:
-            return f"I couldn't find any results for that. (Query: `{sql_query}`)", df
+            return f"I couldn't find any results for that in the current collection. (Query: `{sql_query}`)", df
             
-        return f"Here is what I found based on your request:", df
+        # Generating a curation summary
+        results_summary = df.to_string(index=False)
+        summary_prompt = f"""
+        Summarize the following data in a conversational, elegant boutique style. 
+        The User asked: "{user_query}"
+        The Data: {results_summary}
+        
+        Provide a concise, sophisticated observation. Mention specific values found. 
+        Example: "Our records reflect that the current valuation for [item] is [price] with [quantity] available in carefully maintained storage."
+        No generic 'Based on your request' introductions. 
+        """
+        
+        summary_chat = client.chat.completions.create(
+            messages=[{"role": "user", "content": summary_prompt}],
+            model="llama-3.3-70b-versatile",
+            temperature=0.4
+        )
+        
+        explanation = summary_chat.choices[0].message.content.strip()
+        return explanation, df
         
     except Exception as e:
-        return f"Sorry, I couldn't process that. Error: {str(e)}", None
+        return f"I encountered a slight disturbance in the digital ledger. Error: {str(e)}", None
 
 # --- VOICE ASSISTANT FEATURE ---
 def listen_to_voice():
