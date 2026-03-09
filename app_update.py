@@ -84,7 +84,7 @@ def main():
         layout="wide"
     )
     
-    st.title("🚚 Smart Route for Walmart")
+    st.title("🚚 Smart Route Prototype")
     st.markdown("---")
     
     # Sidebar for adding addresses
