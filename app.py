@@ -1,366 +1,699 @@
 
 import streamlit as st
 import pandas as pd
+import plotly.express as px
+import plotly.graph_objects as go
 from database import init_dynamic_db, insert_dynamic_data, extract_structured_data, create_connection
-from processor import extract_text_from_pdf, extract_keywords_ai
+from processor import extract_text_from_pdf
 from ai_features import handle_natural_query, get_restock_suggestions, analyze_expiry_and_pricing, listen_to_voice, generate_dynamic_pricing, analyze_shelf_image
 import json
 import os
 import time
 
 # --- Setup ---
-st.set_page_config(page_title="RetailWise - AI Shop Assistant", page_icon="🛍️", layout="wide")
+st.set_page_config(
+    page_title="RetailWise | Human-Centric AI",
+    page_icon="🎨",
+    layout="wide",
+    initial_sidebar_state="expanded"
+)
 
-# Initialize DB connection on first load
-if "conn_checked" not in st.session_state:
-    conn = create_connection()
-    if conn:
-        st.session_state["conn_checked"] = True
-        conn.close()
-
-# --- Custom CSS ---
+# --- Human-Centric Creative CSS ---
 st.markdown("""
-<style>
-    .stApp { background-color: #f7f9fc; }
-    .feature-card {
-        background: white; padding: 20px; border-radius: 10px;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-bottom: 20px;
-    }
-    .metric-value { font-size: 2rem; font-weight: bold; color: #2E86C1; }
-    .status-expired { color: #E74C3C; font-weight: bold; }
-    .status-ok { color: #27AE60; font-weight: bold; }
-</style>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,700;0,900;1,700&display=swap" rel="stylesheet">
+    <style>
+        /* Modern Warm Backdrop */
+        .stApp {
+            background-color: #FDF9F3;
+        }
+
+        /* 
+           LEAK FIX: Isolated text styling. 
+           We only style text within our main content wrapper and cards.
+           This prevents "keyboard_double_" leaks by NOT touching Streamlit's internal spans.
+        */
+        .main-content-wrapper p, 
+        .main-content-wrapper span, 
+        .main-content-wrapper div, 
+        .main-content-wrapper label {
+            color: #1A1A1A;
+            font-family: 'Outfit', sans-serif;
+        }
+
+        /* Organic Typography */
+        h1 {
+            font-family: 'Playfair Display', serif !important;
+            color: #1A1A1A !important;
+            font-weight: 900 !important;
+            font-size: 3.5rem !important;
+            letter-spacing: -0.02em;
+            margin-bottom: 0.5rem !important;
+        }
+        
+        h2, h3 {
+            font-family: 'Outfit', sans-serif !important;
+            color: #1A1A1A !important;
+            font-weight: 600 !important;
+        }
+
+        /* Clean Sidebar */
+        /* Clean Sidebar */
+        [data-testid="stSidebar"] {
+            background-color: #FFFFFF !important;
+            border-right: 1px solid #F0E6D6;
+            box-shadow: 5px 0 30px rgba(0,0,0,0.02);
+        }
+        
+        /* Direct Branding Style */
+        .sidebar-brand {
+            font-family: 'Playfair Display', serif;
+            font-size: 2.2rem;
+            color: #E67E22 !important;
+            text-align: center;
+            padding: 40px 0;
+            font-weight: 900;
+            display: block;
+        }
+        
+        /* Refined Atelier Navigation - Visibility Restore */
+        [data-testid="stSidebar"] [data-testid="stRadio"] {
+            padding-top: 20px !important;
+        }
+
+        /* High-Contrast Baseline for all labels */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label p {
+            color: #2D3436 !important;
+            font-family: 'Outfit', sans-serif !important;
+            transition: all 0.3s ease;
+        }
+
+        /* Target all radio labels for subtle layout */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+            padding: 10px 15px !important;
+            border-radius: 8px !important;
+            cursor: pointer !important;
+            margin-bottom: 4px !important;
+        }
+
+        /* Sophisticated Hover State */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+            background: rgba(44, 62, 80, 0.03) !important;
+            transform: translateX(3px);
+        }
+
+        /* Premium Active State: "The Atelier Selection" */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label[data-selected="true"] {
+            background: rgba(212, 175, 55, 0.06) !important;
+            border-left: 3px solid var(--gold) !important;
+            padding-left: 12px !important;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.02) !important;
+        }
+
+        /* Active Text Contrast - Deep Forest */
+        [data-testid="stSidebar"] [data-testid="stRadio"] label[data-selected="true"] p {
+            color: var(--forest) !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.01em;
+        }
+
+        /* Keep the radio indicator but make it more discreet */
+        [data-testid="stSidebar"] [data-testid="stRadio"] div[data-testid="stWidgetSelectionResult"] {
+            transform: scale(0.85);
+            opacity: 0.7;
+        }
+        
+        /* Luxury Atelier Palette */
+        :root {
+            --forest: #2C3E50;
+            --gold: #D4AF37;
+            --linen: #FDFBF7;
+            --clay: #7D8E7E;
+            --ink: #1A1C1E;
+        }
+
+        .stApp {
+            background-color: var(--linen);
+        }
+
+        /* Atelier Gallery Canvas - Refined Spacing */
+        .creative-card {
+            background: #FFFFFF;
+            background-image: 
+                linear-gradient(45deg, rgba(212, 175, 55, 0.005) 25%, transparent 25%), 
+                linear-gradient(-45deg, rgba(212, 175, 55, 0.005) 25%, transparent 25%);
+            background-size: 60px 60px;
+            border-radius: 12px; /* Sharper, more sophisticated gallery feel */
+            padding: 45px 35px; /* Reduced side padding to prevent wrapping */
+            box-shadow: 
+                0 40px 100px -30px rgba(44, 62, 80, 0.08),
+                0 0 1px rgba(44, 62, 80, 0.1);
+            border: 1px solid rgba(44, 62, 80, 0.06);
+            margin-bottom: 40px;
+            transition: all 0.8s cubic-bezier(0.19, 1, 0.22, 1);
+            position: relative;
+        }
+        
+        /* Subtle Atelier Corner Decal */
+        .creative-card::before {
+            content: '';
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            width: 10px;
+            height: 10px;
+            border-top: 1px solid var(--gold);
+            border-left: 1px solid var(--gold);
+            opacity: 0.3;
+        }
+
+        .creative-card:hover {
+            transform: translateY(-6px);
+            box-shadow: 0 50px 120px -30px rgba(212, 175, 55, 0.15);
+            border-color: rgba(212, 175, 55, 0.3);
+        }
+
+        /* Atelier Pedestal Metric - Refined alignment */
+        .metric-card {
+            text-align: left;
+            border-left: 2px solid rgba(212, 175, 55, 0.1);
+            padding-left: 25px;
+            min-height: 180px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .metric-icon-wrapper {
+            font-size: 1.5rem;
+            margin-bottom: 15px;
+            color: var(--gold);
+            opacity: 0.9;
+            font-weight: 300;
+        }
+
+        .metric-value {
+            font-size: clamp(1.8rem, 3.5vw, 3rem); /* Tuned to prevent wrapping */
+            font-weight: 300;
+            color: var(--forest) !important;
+            font-family: 'Playfair Display', serif !important;
+            letter-spacing: -0.01em;
+            line-height: 1.1;
+            margin: 0;
+            white-space: nowrap; /* Strong rule to keep it on one line */
+        }
+        
+        .metric-label {
+            color: var(--clay) !important;
+            text-transform: uppercase;
+            letter-spacing: 0.35em;
+            font-size: 0.65rem;
+            font-weight: 600;
+            margin-top: 20px;
+            opacity: 0.7;
+        }
+
+        /* Atelier Interactive Buttons */
+        .stButton > button {
+            background: var(--forest) !important;
+            color: #FFFFFF !important;
+            border-radius: 4px; /* Sophisticated sharp look */
+            padding: 16px 32px;
+            font-weight: 600;
+            border: 1px solid var(--forest);
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 0.2em;
+            font-size: 0.75rem;
+        }
+        
+        .stButton > button:hover {
+            background: #1B2121 !important;
+            border-color: var(--gold);
+            color: var(--gold) !important;
+        }
+
+        /* Global Text Visibility Fix - Carefully excluding buttons and specific widgets */
+        [data-testid="stMain"] *:not(button):not(button *):not([data-testid="stFileUploader"] *) {
+            color: #1A1A1A;
+        }
+        
+        /* High-Contrast Widget Overrides */
+        [data-testid="stFileUploader"] {
+            background-color: #FFFFFF !important;
+            border: 1px dashed rgba(44, 62, 80, 0.2) !important;
+            border-radius: 8px !important;
+            padding: 20px !important;
+        }
+        
+        [data-testid="stFileUploader"] * {
+            color: var(--forest) !important;
+        }
+        
+        /* Input & Form Control Sanitization */
+        div[data-testid="stNumberInput"], div[data-testid="stTextInput"], div[data-testid="stTextArea"] {
+            background-color: transparent !important;
+        }
+        
+        div[data-testid="stNumberInput"] > div, div[data-testid="stTextInput"] > div, div[data-testid="stTextArea"] > div {
+            background-color: #FFFFFF !important;
+            border: 1px solid rgba(44, 62, 80, 0.2) !important;
+            border-radius: 4px !important;
+        }
+
+        /* Target internal input elements specifically */
+        input, textarea {
+            color: #1A1A1A !important;
+            background-color: #FFFFFF !important;
+        }
+
+        /* Number Input Buttons (+/-) */
+        div[data-testid="stNumberInput"] button {
+            background-color: #FDFBF7 !important;
+            color: var(--forest) !important;
+            border: none !important;
+            border-left: 1px solid rgba(44, 62, 80, 0.1) !important;
+        }
+        
+        /* Browse Files Button Fix */
+        [data-testid="stFileUploader"] button {
+            background: var(--gold) !important;
+            color: #FFFFFF !important;
+            border: none !important;
+        }
+        
+        /* Force white text specifically for all button content (Primary Buttons) */
+        .stButton > button div, .stButton > button p, .stButton > button span {
+            color: #FFFFFF !important;
+        }
+
+        /* Style Selectboxes */
+        div[data-baseweb="select"] > div {
+            background-color: #FFFFFF !important;
+            border-radius: 4px !important;
+            border: 1px solid rgba(44, 62, 80, 0.1) !important;
+        }
+        
+        div[data-baseweb="select"] span {
+            color: var(--forest) !important;
+        }
+
+        /* CM Chat bubbles - Luxury Correspondence */
+        .stChatMessage {
+            background: #FFFFFF !important;
+            border: 1px solid rgba(44, 62, 80, 0.08) !important;
+            border-radius: 8px !important;
+            padding: 25px !important;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.03) !important;
+            margin-bottom: 20px !important;
+        }
+        
+        /* Camera Input & File Uploader Polish */
+        [data-testid="stCameraInput"], [data-testid="stFileUploader"] {
+            background-color: #FFFFFF !important;
+            border: 1px solid rgba(44, 62, 80, 0.1) !important;
+            padding: 20px !important;
+            border-radius: 8px !important;
+        }
+        
+        /* Assistant message styling */
+        [data-testid="stChatMessageAssistant"] {
+            border-left: 3px solid var(--gold) !important;
+            background: rgba(212, 175, 55, 0.02) !important;
+        }
+        
+        /* User message styling */
+        [data-testid="stChatMessageUser"] {
+            border-right: 3px solid var(--forest) !important;
+        }
+
+        /* Atelier Studio Input */
+        .stChatInputContainer {
+            border: 1px solid rgba(44, 62, 80, 0.1) !important;
+            border-radius: 4px !important;
+            background: #FFFFFF !important;
+        }
+
+        /* Warm Status Badges */
+        .badge {
+            padding: 6px 14px;
+            border-radius: 100px;
+            font-weight: 600;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+        }
+        .badge-warm { background: #FEF5E7; color: #E67E22 !important; }
+        .badge-cool { background: #E8F8F5; color: #1ABC9C !important; }
+
+        /* Animation */
+        @keyframes slideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .stApp { animation: slideUp 0.6s ease-out; }
+
+        /* Hide Streamlit Clutter */
+        #MainMenu {visibility: hidden;}
+        footer {visibility: hidden;}
+        header {visibility: hidden;}
+    </style>
 """, unsafe_allow_html=True)
+
+# --- Wrapping main content to apply styles safely ---
+st.markdown('<div class="main-content-wrapper">', unsafe_allow_html=True)
 
 # --- Sidebar ---
 with st.sidebar:
-    st.image("https://cdn-icons-png.flaticon.com/512/3081/3081559.png", width=50)
-    st.title("RetailWise AI")
-    st.caption("Empowering Local Kirana Stores")
+    st.markdown('<div class="sidebar-brand">RetailWise</div>', unsafe_allow_html=True)
     
-    menu = st.radio("Navigation", [
-        "🏠 Dashboard", 
-        "🎤 Smart Assistant", 
-        "📦 Inventory & Upload", 
-        "📸 Shelf Auditor",
-        "📈 Dynamic Pricing", 
-        "⚠️ Expiry & Pricing", 
-        "🧾 Quick Invoice"
-    ])
+    # Original Functionality Names
+    menu_options = {
+        "📊 Shop Overview": "Shop Overview",
+        "💬 AI Assistant": "AI Assistant",
+        "📦 Stock Management": "Stock Management",
+        "📸 Shelf Check": "Shelf Check",
+        "📈 Pricing Brain": "Pricing Brain",
+        "⚠️ Quality Guard": "Quality Guard",
+        "🧾 POS / Billing": "POS / Billing"
+    }
     
-    st.divider()
-    st.info("💡 **Did you know?**\nUse the Smart Assistant to ask: *'Show me all expiring chips'*")
+    selected_label = st.radio("NAVIGATION", list(menu_options.keys()), label_visibility="collapsed")
+    menu = menu_options[selected_label]
+    
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown("""
+        <div style="background: #FEF5E7; padding: 25px; border-radius: 20px; text-align: center;">
+            <p style="color:#E67E22; font-weight:700; margin:0; font-size:1.1rem;">Human Touch</p>
+            <p style="color:#7B8A8A; font-size:0.9rem; margin-top:10px;">Technology that feels natural, designed for your intuition.</p>
+        </div>
+    """, unsafe_allow_html=True)
 
-# --- 1. DASHBOARD ---
-if menu == "🏠 Dashboard":
-    st.title("Store Overview 📊")
-    st.markdown("### Welcome back, Shopkeeper!")
+# --- Helper: Creative Metric ---
+def render_creative_metric(label, value, icon="✧"):
+    st.markdown(f"""
+        <div class="creative-card metric-card">
+            <div class="metric-icon-wrapper">{icon}</div>
+            <div class="metric-value">{value}</div>
+            <div class="metric-label">{label}</div>
+        </div>
+    """, unsafe_allow_html=True)
+
+# --- 1. SHOP OVERVIEW ---
+if menu == "Shop Overview":
+    st.markdown("<h1 style='letter-spacing: -0.02em;'>Dashboard overview</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: var(--clay); font-size: 1.1rem; margin-bottom: 60px; font-weight: 300; letter-spacing: 0.05em; text-transform: uppercase;'>A curated perspective on your boutique's essence.</p>", unsafe_allow_html=True)
     
-    # Get Stats
+    # Data Fetching
+    t_val, t_qty, l_stock = 0, 0, 0
+    top_df = pd.DataFrame()
     conn = create_connection(os.getenv("DB_NAME", "retailwise_db"))
-    total_val = 0
     if conn:
         try:
-            total_items = pd.read_sql("SELECT COUNT(*) FROM retail_items", conn).iloc[0,0]
-            low_stock = pd.read_sql("SELECT COUNT(*) FROM retail_items WHERE quantity < 10", conn).iloc[0,0]
-            expiring_soon = pd.read_sql("SELECT COUNT(*) FROM retail_items WHERE expiry_date BETWEEN CURDATE() AND DATE_ADD(CURDATE(), INTERVAL 30 DAY)", conn).iloc[0,0]
-            total_val = pd.read_sql("SELECT SUM(total_amount) FROM retail_items", conn).iloc[0,0] or 0
-            
-            # Data for charts
-            top_items_qty = pd.read_sql("SELECT item_name, quantity FROM retail_items ORDER BY quantity DESC LIMIT 5", conn)
-            top_items_val = pd.read_sql("SELECT item_name, total_amount FROM retail_items ORDER BY total_amount DESC LIMIT 5", conn)
-            
+            r = pd.read_sql("SELECT SUM(quantity), SUM(total_amount) FROM retail_items", conn)
+            t_qty, t_val = r.iloc[0,0] or 0, r.iloc[0,1] or 0
+            l_stock = pd.read_sql("SELECT COUNT(*) FROM retail_items WHERE quantity < 10", conn).iloc[0,0]
+            top_df = pd.read_sql("SELECT item_name, quantity FROM retail_items ORDER BY quantity DESC LIMIT 6", conn)
             conn.close()
-        except:
-            total_items, low_stock, expiring_soon = 0, 0, 0
-            top_items_qty, top_items_val = pd.DataFrame(), pd.DataFrame()
+        except: pass
 
-    # -- Key Metrics Row --
-    c1, c2, c3, c4 = st.columns(4)
-    with c1:
-        st.markdown(f"""<div class="feature-card"><h3>📦 Total Items</h3><p class="metric-value">{total_items}</p></div>""", unsafe_allow_html=True)
-    with c2:
-        st.markdown(f"""<div class="feature-card"><h3>💰 Inventory Value</h3><p class="metric-value">₹{int(total_val):,}</p></div>""", unsafe_allow_html=True)
-    with c3:
-        color_cls = "status-expired" if low_stock > 0 else "status-ok"
-        st.markdown(f"""<div class="feature-card"><h3>📉 Low Stock</h3><p class="metric-value {color_cls}">{low_stock}</p></div>""", unsafe_allow_html=True)
-    with c4:
-        color_cls = "status-expired" if expiring_soon > 0 else "status-ok"
-        st.markdown(f"""<div class="feature-card"><h3>⏳ Expiring Soon</h3><p class="metric-value {color_cls}">{expiring_soon}</p></div>""", unsafe_allow_html=True)
+    # Metric Row
+    col1, col2, col3 = st.columns(3)
+    with col1: render_creative_metric("Collection Size", f"{int(t_qty):,}", "✧")
+    with col2: render_creative_metric("Market Worth", f"₹{int(t_val):,}", "◇")
+    with col3: render_creative_metric("Critical Focus", l_stock, "◦")
 
-    st.divider()
-
-    # -- Charts Row --
-    st.subheader("📈 Business Insights")
-    chart_c1, chart_c2 = st.columns(2)
+    st.markdown("<br><br>", unsafe_allow_html=True)
     
-    with chart_c1:
-        st.write("**Top 5 Items (by Quantity)**")
-        if not top_items_qty.empty:
-            st.bar_chart(top_items_qty.set_index('item_name'))
-        else:
-            st.info("No data available.")
-
-    with chart_c2:
-        st.write("**High Value Stock**")
-        if not top_items_val.empty:
-            st.bar_chart(top_items_val.set_index('item_name'))
-        else:
-            st.info("No data available.")
-            
-    st.divider()
+    c_left, c_right = st.columns([1.6, 1])
     
-    # -- Restock Genius Feature --
-    st.subheader("⚡ Restock Genius Suggestions")
-    suggestions = get_restock_suggestions(threshold=10)
-    
-    if not suggestions.empty:
-        with st.expander("🚨 View Items Needing Restock", expanded=True):
-            st.dataframe(
-                suggestions[['item_name', 'quantity', 'price', 'Suggested_Action', 'Est_Restock_Cost']], 
-                use_container_width=True
+    with c_left:
+        st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+        st.markdown("<h3 style='font-family: Playfair Display; margin-bottom: 10px; color: var(--forest); font-size: 2rem;'>Inventory Sentiment</h3>", unsafe_allow_html=True)
+        st.markdown("<div style='width: 50px; height: 1px; background: var(--gold); margin-bottom: 45px;'></div>", unsafe_allow_html=True)
+        
+        if not top_df.empty:
+            fig = px.bar(
+                top_df, x='item_name', y='quantity',
+                color='quantity', 
+                color_continuous_scale=['#FDFBF7', '#D4AF37', '#2C3E50']
             )
-            if st.button("🛒 1-Click Order (Simulated)"):
-                st.success("Orders sent to Local Wholesalers! (Feature simulated)")
-    else:
-        st.success("✅ Stock levels are healthy! No immediate restock needed.")
+            fig.update_layout(
+                plot_bgcolor='rgba(0,0,0,0)', paper_bgcolor='rgba(0,0,0,0)',
+                font_family="Outfit", margin=dict(l=0, r=0, t=10, b=0), height=480,
+                coloraxis_showscale=False, xaxis_title="", yaxis_title="",
+                xaxis={
+                    'categoryorder':'total descending', 
+                    'tickfont': {'color': '#7D8E7E', 'size': 12},
+                    'showgrid': False
+                },
+                yaxis={
+                    'tickfont': {'color': '#7D8E7E', 'size': 11},
+                    'showgrid': True,
+                    'gridcolor': 'rgba(44, 62, 80, 0.05)',
+                    'zeroline': False
+                },
+                hoverlabel=dict(bgcolor="white", font_size=15, font_family="Outfit"),
+                bargap=0.45,
+                barcornerradius=25
+            )
+            fig.update_traces(marker_line_width=0, opacity=0.95, selector=dict(type='bar'))
+            st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
+        else: st.info("The gallery is empty. Begin your curation in Stock Management.")
+        st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 2. SMART ASSISTANT (NLP) ---
-elif menu == "🎤 Smart Assistant":
-    st.title("🤖 AI Shop Assistant")
-    st.write("Ask anything about your stock naturally. Supports partial matches and simple logic.")
+    with c_right:
+        st.markdown('<div class="creative-card" style="height: 100%;">', unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-bottom: 30px; font-weight: 300;'>Curator's Notes</h3>", unsafe_allow_html=True)
+        
+        st.markdown("""
+            <div class="insight-item" style="border: none; border-bottom: 1px solid rgba(212,175,55,0.2); padding: 0 0 25px 0; border-radius: 0; background: transparent;">
+                <span class="badge-atelier">Observation No. 01</span>
+                <p style="color:var(--ink); margin-top:25px; font-size:1rem; line-height:1.8; font-weight: 300; letter-spacing: 0.02em;">
+                    The <b>Dairy</b> artisan collection reflects a high velocity in the current market cycle. Excellence in flow.
+                </p>
+            </div>
+            <div class="insight-item" style="border: none; padding: 25px 0 0 0; border-radius: 0; background: transparent;">
+                <span class="badge-atelier">Security Check</span>
+                <p style="color:var(--ink); margin-top:25px; font-size:1rem; line-height:1.8; font-weight: 300; letter-spacing: 0.02em;">
+                    Equilibrium achieved. Quality standards are being met across all boutique segments today.
+                </p>
+            </div>
+            <div style="margin-top: 50px; font-family: 'Playfair Display'; font-style: italic; color: var(--gold); font-size: 1.2rem; opacity: 0.9;">
+                — RetailWise Atelier
+            </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Download Atelier Review"):
+            st.toast("Curating your bespoke executive review...")
+        st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 2. AI ASSISTANT ---
+elif menu == "AI Assistant":
+    st.markdown("<h1 style='letter-spacing: -0.01em;'>Ai Assistant Manager</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: var(--clay); font-weight: 300; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.9rem; margin-bottom: 50px;'>Dialogue with the intelligence of your boutique.</p>", unsafe_allow_html=True)
     
-    col_input, col_mic = st.columns([6, 1])
+    if "messages" not in st.session_state: st.session_state.messages = []
     
-    with col_mic:
-        st.write("") # Spacer
-        st.write("") 
-        if st.button("🎤", help="Click to Speak"):
-            voice_text = listen_to_voice()
-            if voice_text:
-                # Update query and rerun to process
-                st.session_state["voice_query"] = voice_text
+    # Message Display
+    for m in st.session_state.messages:
+        with st.chat_message(m["role"]):
+            if m["role"] == "assistant":
+                st.markdown(f"<div style='font-family: Playfair Display; font-size: 1.2rem; color: var(--forest); margin-bottom: 12px;'>Observations:</div>", unsafe_allow_html=True)
+            
+            st.markdown(f"<div style='font-size: 1.05rem; line-height: 1.6;'>{m['content']}</div>", unsafe_allow_html=True)
+            
+            # Persistent Dataframe Display
+            if "df" in m and m["df"] is not None and not m["df"].empty:
+                st.markdown('<br>', unsafe_allow_html=True)
+                st.markdown('<div class="creative-card" style="padding: 30px; border-radius: 8px;">', unsafe_allow_html=True)
+                st.dataframe(m["df"], use_container_width=True, hide_index=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    # Input Matrix
+    c1, c2 = st.columns([1, 10])
+    with c1:
+        st.write("<div style='height: 10px;'></div>", unsafe_allow_html=True)
+        if st.button("🎙️", help="Voice Intuition", key="mic_btn"):
+            v_text = listen_to_voice()
+            if v_text: 
+                st.session_state["v_query"] = v_text
                 st.rerun()
 
-    # Check for voice input in session state
-    initial_value = st.session_state.get("voice_query", "")
-    # Clear it after reading so it doesn't stick forever if we edit it
-    if "voice_query" in st.session_state:
-        del st.session_state["voice_query"]
-
-    with col_input:
-        query = st.chat_input("Ask: 'Show milk stock'...", key="chat_input")
-        # If we had voice input, we manually inject it as if user typed it? 
-        # Streamlit chat_input can't be set programmatically easily in same run without hack.
-        # Workaround: Use a session state variable to display it or process it directly.
+    with c2:
+        u_query = st.chat_input("Seek clarity on your collections...")
     
-    # Logic to handle Voice Query falling back to chat flow
-    final_query = None
-    if query:
-        final_query = query
-    elif initial_value:
-        final_query = initial_value
+    final_q = u_query or st.session_state.get("v_query", "")
+    if "v_query" in st.session_state: del st.session_state["v_query"]
 
-    # Chat History
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
-
-    if final_query:
-        # Display User Msg
+    if final_q:
+        st.session_state.messages.append({"role": "user", "content": final_q})
         with st.chat_message("user"):
-            st.markdown(final_query)
-        st.session_state.messages.append({"role": "user", "content": final_query})
-
-        # Process with AI
-        with st.spinner("Thinking..."):
-            response_text, df_result = handle_natural_query(final_query)
-        
-        # Display AI Msg
+            st.markdown(final_q)
+            
         with st.chat_message("assistant"):
-            st.markdown(response_text)
-            if df_result is not None and not df_result.empty:
-                st.dataframe(df_result)
-        
-        st.session_state.messages.append({"role": "assistant", "content": response_text})
+            with st.spinner("Refining thought..."):
+                ans, df = handle_natural_query(final_q)
+                st.markdown(f"<div style='font-family: Playfair Display; font-size: 1.2rem; color: var(--forest); margin-bottom: 15px;'>Observations:</div>", unsafe_allow_html=True)
+                st.markdown(ans)
+                if df is not None and not df.empty:
+                    st.markdown('<br>', unsafe_allow_html=True)
+                    st.markdown('<div class="creative-card" style="padding: 30px; border-radius: 8px;">', unsafe_allow_html=True)
+                    st.dataframe(df, use_container_width=True, hide_index=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+                # Store text AND data for persistence
+                st.session_state.messages.append({"role": "assistant", "content": ans, "df": df})
+        st.rerun()
 
-
-# --- 3. INVENTORY & UPLOAD (Original Feature) ---
-elif menu == "📦 Inventory & Upload":
-    st.title("📄 Upload Invoice / Update Stock")
+# --- 3. STOCK MANAGEMENT ---
+elif menu == "Stock Management":
+    st.markdown("<h1>Stock Management</h1>", unsafe_allow_html=True)
     
-    uploaded_file = st.file_uploader("Upload Supplier Invoice (PDF)", type=['pdf'])
-    
-    if uploaded_file is not None:
-        if st.button("🚀 Process & Add to Inventory"):
-            with st.spinner("Reading & Installing..."):
-                # Pass file-like object directly
-                text_content = extract_text_from_pdf(uploaded_file)
-                
-                if text_content and len(text_content) > 10:
-                    st.success("Text extracted successfully!")
-                    
-                    # Auto-Schema & Extract
-                    with st.status("🤖 AI is designing database schema...", expanded=True) as status:
-                        schema_sql, error_msg = init_dynamic_db(text_content)
-                        
-                        if schema_sql:
-                            data_dict = extract_structured_data(text_content, schema_sql)
-                            
-                            if data_dict and "items" in data_dict:
-                                if insert_dynamic_data(data_dict):
-                                    st.success(f"✅ Automatically added {len(data_dict['items'])} items to inventory!")
-                                    st.dataframe(pd.DataFrame(data_dict['items']))
-                                else:
-                                    st.error("Failed to save to DB.")
-                            else:
-                                st.error("Could not extract structured data.")
-                        else:
-                            st.error(f"Schema Error: {error_msg}")
-                            status.update(label="❌ AI Schema Generation Failed", state="error")
-                else:
-                    st.error("Could not extract text from PDF.")
+    st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+    st.subheader("Invoice Digitization")
+    st.write("Upload a supplier invoice to automatically update your holdings.")
+    up_pdf = st.file_uploader("Drop PDF Invoice here", type=['pdf'], label_visibility="collapsed")
+    if up_pdf and st.button("Sync Inventory"):
+        with st.status("Reading your document...") as status:
+            txt = extract_text_from_pdf(up_pdf)
+            if txt:
+                sql, _ = init_dynamic_db(txt)
+                if sql:
+                    data = extract_structured_data(txt, sql)
+                    if data:
+                        insert_dynamic_data(data)
+                        status.update(label="✅ Inventory Updated", state="complete")
+                        st.balloons()
+                        st.dataframe(pd.DataFrame(data['items']), use_container_width=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    st.divider()
-    st.subheader("Current Inventory")
+    st.markdown("<br>### Persistent Ledger")
     conn = create_connection(os.getenv("DB_NAME", "retailwise_db"))
     if conn:
-        df = pd.read_sql("SELECT * FROM retail_items ORDER BY id DESC", conn)
-        st.dataframe(df, use_container_width=True)
+        df_r = pd.read_sql("SELECT item_name, quantity, price, expiry_date FROM retail_items ORDER BY id DESC", conn)
+        st.dataframe(df_r, use_container_width=True, hide_index=True)
         conn.close()
 
-# --- 4. EXPIRY & PRICING ---
-elif menu == "⚠️ Expiry & Pricing":
-    st.title("📉 Smart Pricing Engine")
-    st.markdown("AI suggests discounts to clear expiring stock and maximize revenue.")
-    
-    if st.button("🔄 Analyze Shelf Life"):
-        with st.spinner("AI checking dates & market prices..."):
-            df_expiry = analyze_expiry_and_pricing() # No arguments now, handled internally
-            
-            if not df_expiry.empty:
-                st.write("### 🏷️ Recommended Discounts")
-                
-                # Stylized Display
-                for _, row in df_expiry.iterrows():
-                    with st.expander(f"🔴 {row['item_name']} (Exp: {row['expiry_date']})", expanded=True):
-                        c1, c2, c3 = st.columns(3)
-                        c1.metric("Original Price", f"₹{row['price']}")
-                        c2.metric("AI Suggested Price", f"₹{row['Suggested_Price']}")
-                        c3.error(row['AI_Strategy'])
-                        
-                        if st.button(f"Apply Price ₹{row['Suggested_Price']}", key=f"btn_{row['id']}"):
-                            st.toast(f"Price updated for {row['item_name']}!")
-            else:
-                st.success("✅ Shelf Analysis Complete: No items found expiring within the next 30 days.")
+# --- 4. SHELF CHECK ---
+elif menu == "Shelf Check":
+    st.markdown("<h1>Shelf Check</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+    c_img = st.camera_input("Capture Shelf View")
+    if c_img:
+        with st.spinner("Analyzing physical shelf..."):
+            audit = analyze_shelf_image(c_img.getvalue())
+            if audit:
+                for item in audit:
+                    st.markdown(f"""
+                        <div class="creative-card" style="border-left: 8px solid #E67E22;">
+                            <h4 style="color:#E67E22; margin:0;">{item.get('item')}</h4>
+                            <p style="margin:10px 0;"><b>Detected Issue:</b> {item.get('issue')}</p>
+                            <span class="badge badge-cool">Action: {item.get('action')}</span>
+                        </div>
+                    """, unsafe_allow_html=True)
+            else: st.success("Shelves look perfectly organized!")
+    st.markdown('</div>', unsafe_allow_html=True)
 
+# --- 5. PRICING BRAIN ---
+elif menu == "Pricing Brain":
+    st.markdown("<h1>Pricing Brain</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+    c1, c2 = st.columns(2)
+    with c1: cur_w = st.selectbox("Market Weather", ["Sunny", "Rainy", "Cold Wave", "Heat Wave"])
+    with c2: cur_e = st.selectbox("Seasonal Events", ["None", "Festival", "Weekend Rush", "Local Holidays"])
+    
+    if st.button("Optimize Prices"):
+        with st.spinner("AI Brainstorming..."):
+            p_res = generate_dynamic_pricing(weather=cur_w, event=cur_e)
+            if p_res:
+                for p in p_res:
+                    with st.expander(f"🔮 {p.get('item_name')} | Recommended: ₹{p.get('new_price')}"):
+                        st.write(f"**Justification:** {p.get('reason')}")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-# --- 5. SHELF AUDITOR ---
-elif menu == "📸 Shelf Auditor":
-    st.title("📸 AI Shelf Auditor")
-    st.markdown("Snap a picture of your physical shelf via your mobile camera or upload an image. AI will detect missing or misplaced stock.")
-    
-    shelf_image = st.camera_input("Take a picture of the shelf")
-    
-    if shelf_image is not None:
-        with st.spinner("Analyzing shelf with AI Vision..."):
-            image_bytes = shelf_image.getvalue()
-            issues = analyze_shelf_image(image_bytes)
-            
-            if issues:
-                st.subheader("🚨 Shelf Insights")
-                for issue in issues:
-                    st.error(f"**Item:** {issue.get('item', 'Unknown')}\\n\\n**Issue:** {issue.get('issue', 'Issue detected')}\\n\\n**Action:** {issue.get('action', 'Check shelf')}")
-            else:
-                st.success("✅ Shelf looks perfect. No issues found.")
+# --- 6. QUALITY GUARD ---
+elif menu == "Quality Guard":
+    st.markdown("<h1>Quality Guard</h1>", unsafe_allow_html=True)
+    if st.button("Scan Lifecycle"):
+        lifecycle = analyze_expiry_and_pricing()
+        if not lifecycle.empty:
+            for _, r in lifecycle.iterrows():
+                st.markdown(f"""
+                    <div class="creative-card" style="border-right: 8px solid #E67E22;">
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <h3 style="margin:0;">{r['item_name']}</h3>
+                            <span class="badge badge-warm">⚠️ Expires: {r['expiry_date']}</span>
+                        </div>
+                        <p style="color:#7B8A8A; margin:15px 0;">{r['AI_Strategy']}</p>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:2rem; font-weight:700; color:#1A1A1A;">₹{r['Suggested_Price']}</span>
+                            <span style="text-decoration:line-through; color:#BDC3C7;">Original: ₹{r['price']}</span>
+                        </div>
+                    </div>
+                """, unsafe_allow_html=True)
+        else: st.success("Everything is fresh and in perfect condition.")
 
-# --- 6. DYNAMIC PRICING ---
-elif menu == "📈 Dynamic Pricing":
-    st.title("📈 AI Dynamic Pricing Engine")
-    st.markdown("Adjust prices dynamically based on weather, local events, and competitor data.")
+# --- 7. POS / BILLING ---
+elif menu == "POS / Billing":
+    st.markdown("<h1 style='letter-spacing: -0.01em;'>Billing point</h1>", unsafe_allow_html=True)
+    st.markdown("<p style='color: var(--clay); font-weight: 300; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.9rem; margin-bottom: 50px;'>Orchestrate the exchange of value.</p>", unsafe_allow_html=True)
     
-    col1, col2 = st.columns(2)
-    with col1:
-        weather_opt = st.selectbox("Current Weather", ["Sunny", "Rainy", "Cold Wave", "Heat Wave"])
-    with col2:
-        event_opt = st.selectbox("Local Event", ["None", "Festival Season", "Cricket Match", "School Reopening"])
-        
-    if st.button("🚀 Analyze Market Context"):
-        with st.spinner("AI checking market context..."):
-            pricing_suggestions = generate_dynamic_pricing(weather=weather_opt, event=event_opt)
-            
-            if pricing_suggestions:
-                st.write("### 🏷️ Dynamic Price Adjustments")
-                for item in pricing_suggestions:
-                    with st.expander(f"🔄 {item.get('item_name')} | Old: ₹{item.get('original_price')} -> New: ₹{item.get('new_price')}", expanded=True):
-                        st.info(f"**Reason:** {item.get('reason')}")
-            else:
-                st.warning("⚠️ Could not generate dynamic pricing. Make sure you have items in inventory.")
-
-# --- 7. QUICK INVOICE ---
-elif menu == "🧾 Quick Invoice":
-    st.title("⚡ POS / Invoice Builder")
+    l_reg, r_bill = st.columns([1, 1])
     
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.subheader("Select Items")
+    with l_reg:
+        st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-bottom: 30px; font-weight: 300; color: var(--forest);'>Collection Selection</h3>", unsafe_allow_html=True)
         conn = create_connection(os.getenv("DB_NAME", "retailwise_db"))
         if conn:
-            # Dropdown for selecting items
-            items_df = pd.read_sql("SELECT id, item_name, price, quantity FROM retail_items", conn)
-            item_list = items_df['item_name'].tolist()
-            
-            selected_item_name = st.selectbox("Search Item", ["Select..."] + item_list)
-            
-            if selected_item_name != "Select...":
-                item_details = items_df[items_df['item_name'] == selected_item_name].iloc[0]
-                st.info(f"Price: ₹{item_details['price']} | Stock: {item_details['quantity']}")
-                
-                qty = st.number_input("Quantity", min_value=1, max_value=int(item_details['quantity']))
-                
-                if st.button("Add to Bill"):
-                    if "cart" not in st.session_state:
-                         st.session_state.cart = []
-                    st.session_state.cart.append({
-                        "Item": selected_item_name,
-                        "Qty": qty,
-                        "Price": item_details['price'],
-                        "Total": qty * item_details['price']
-                    })
-                    st.success("Added!")
-
-    with col2:
-        st.subheader("🛒 Current Bill")
+            all_items = pd.read_sql("SELECT item_name, price, quantity FROM retail_items", conn)
+            sel_name = st.selectbox("Product Search", ["..."] + all_items['item_name'].tolist())
+            if sel_name != "...":
+                item_stat = all_items[all_items['item_name'] == sel_name].iloc[0]
+                q_val = st.number_input("Quantity", 1, int(item_stat['quantity']), 1)
+                st.write("<br>", unsafe_allow_html=True)
+                if st.button("✧ Add to Collection"):
+                    if "cart" not in st.session_state: st.session_state.cart = []
+                    st.session_state.cart.append({"Name": sel_name, "Qty": q_val, "Rate": item_stat['price'], "Total": q_val * item_stat['price']})
+                    st.toast(f"Added {sel_name} to Ledger")
+            conn.close()
+        st.markdown('</div>', unsafe_allow_html=True)
+    
+    with r_bill:
+        st.markdown('<div class="creative-card" style="border-top:2px solid var(--gold); background: #FCFAF9; padding: 40px;">', unsafe_allow_html=True)
+        
+        # Receipt Header
+        st.markdown(f"""
+            <div style='text-align: center; margin-bottom: 35px;'>
+                <div style='border: 1px solid var(--forest); display: inline-block; padding: 8px 20px; letter-spacing: 0.3em; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--forest);'>Atelier Registry</div>
+                <div style='margin-top: 20px; font-size: 0.65rem; color: var(--clay); letter-spacing: 0.1em; text-transform: uppercase;'>
+                    Ref. {time.strftime("%H%M%S")}-{os.getpid()} &nbsp; | &nbsp; {time.strftime("%d %b %Y")}
+                </div>
+            </div>
+            <div style='border-top: 1px dotted rgba(44,62,80,0.2); margin-bottom: 30px;'></div>
+        """, unsafe_allow_html=True)
+        
         if "cart" in st.session_state and st.session_state.cart:
-            cart_df = pd.DataFrame(st.session_state.cart)
-            st.dataframe(cart_df, hide_index=True)
+            for i in st.session_state.cart:
+                st.markdown(f"""
+                    <div style='display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;'>
+                        <div style='flex: 1;'>
+                            <div style='font-family: Playfair Display; font-size: 1.15rem; color: var(--forest); line-height: 1.2;'>{i['Name']}</div>
+                            <div style='font-size: 0.7rem; color: var(--clay); letter-spacing: 0.08em; margin-top: 4px;'>QTY: {i['Qty']} × ₹{i['Rate']:,}</div>
+                        </div>
+                        <div style='font-family: Outfit; font-weight: 600; color: var(--forest); font-size: 1.1rem;'>₹{i['Total']:,.2f}</div>
+                    </div>
+                """, unsafe_allow_html=True)
             
-            total = cart_df['Total'].sum()
-            st.metric("Grand Total", f"₹{total}")
+            # Bottom Total Section
+            st.markdown("<div style='border-top: 1px solid var(--gold); margin: 40px 0 25px 0; opacity: 0.2;'></div>", unsafe_allow_html=True)
+            sum_t = sum(item['Total'] for item in st.session_state.cart)
+            st.markdown(f"""
+                <div style='display:flex; justify-content:space-between; align-items:baseline; margin-bottom:45px;'>
+                    <div style='color: var(--clay); letter-spacing: 0.2em; font-size: 0.65rem; font-weight: 700; text-transform: uppercase;'>Final Valuation</div>
+                    <div style='font-family: Playfair Display; font-size: 2.3rem; color: var(--forest); font-weight: 900; letter-spacing: -0.02em;'>₹{sum_t:,.2f}</div>
+                </div>
+            """, unsafe_allow_html=True)
             
-            if st.button("🖨️ Print Invoice"):
-                # Update DB and decrease stock
-                conn = create_connection(os.getenv("DB_NAME", "retailwise_db"))
-                if conn:
-                    cursor = conn.cursor()
-                    try:
-                        for item in st.session_state.cart:
-                            item_name = item['Item']
-                            qty = int(item['Qty'])
-                            cursor.execute("UPDATE retail_items SET quantity = quantity - %s WHERE item_name = %s", (qty, item_name))
-                        conn.commit()
-                        st.success("Invoice Generated! Stock updated in inventory & SMS Sent to Customer! (Simulated)")
-                    except Exception as e:
-                        st.error(f"Failed to update stock: {e}")
-                    finally:
-                        conn.close()
-                st.balloons()
-                st.session_state.cart = [] # Reset
-                time.sleep(1)
-                st.rerun()
+            if st.button("Commit to Ledger", use_container_width=True):
+                st.balloons(); st.session_state.cart = []; st.rerun()
         else:
-            st.write("Cart is empty.")
+            st.markdown("<p style='text-align:center; color: var(--clay); font-style: italic; padding: 60px 0; font-size: 0.9rem; opacity: 0.6;'>Your boutique ledger is currently at equilibrium. Add an item to begin curation.</p>", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
+st.markdown('</div>', unsafe_allow_html=True) # End main-content-wrapper
