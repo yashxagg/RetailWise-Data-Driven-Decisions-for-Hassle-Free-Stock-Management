@@ -371,7 +371,8 @@ with st.sidebar:
         "📸 Shelf Check": "Shelf Check",
         "📈 Pricing Brain": "Pricing Brain",
         "⚠️ Quality Guard": "Quality Guard",
-        "🧾 POS / Billing": "POS / Billing"
+        "🧾 POS / Billing": "POS / Billing",
+        "🚚 Smart Route Optimizer": "Smart Route Optimizer"
     }
     
     selected_label = st.radio("NAVIGATION", list(menu_options.keys()), label_visibility="collapsed")
@@ -380,8 +381,8 @@ with st.sidebar:
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.markdown("""
         <div style="background: #FEF5E7; padding: 25px; border-radius: 20px; text-align: center;">
-            <p style="color:#E67E22; font-weight:700; margin:0; font-size:1.1rem;">Human Touch</p>
-            <p style="color:#7B8A8A; font-size:0.9rem; margin-top:10px;">Technology that feels natural, designed for your intuition.</p>
+            <p style="color:#E67E22; font-weight:700; margin:0; font-size:1.1rem;">Your Smart Store</p>
+            <p style="color:#7B8A8A; font-size:0.9rem; margin-top:10px;">AI tools to help you manage your grocery store easily and efficiently.</p>
         </div>
     """, unsafe_allow_html=True)
 
@@ -397,8 +398,10 @@ def render_creative_metric(label, value, icon="✧"):
 
 # --- 1. SHOP OVERVIEW ---
 if menu == "Shop Overview":
-    st.markdown("<h1 style='letter-spacing: -0.02em;'>Dashboard overview</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: var(--clay); font-size: 1.1rem; margin-bottom: 60px; font-weight: 300; letter-spacing: 0.05em; text-transform: uppercase;'>A curated perspective on your boutique's essence.</p>", unsafe_allow_html=True)
+    st.markdown("<h1 style='letter-spacing: -0.02em;'>Dashboard Overview</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 40px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Get a quick summary of your grocery store's daily performance, top-selling items, and stock alerts.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     # Data Fetching
     t_val, t_qty, l_stock = 0, 0, 0
@@ -455,40 +458,39 @@ if menu == "Shop Overview":
             )
             fig.update_traces(marker_line_width=0, opacity=0.95, selector=dict(type='bar'))
             st.plotly_chart(fig, use_container_width=True, config={'displayModeBar': False})
-        else: st.info("The gallery is empty. Begin your curation in Stock Management.")
+        else: st.info("No items found. Add some products in Stock Management.")
         st.markdown('</div>', unsafe_allow_html=True)
 
     with c_right:
         st.markdown('<div class="creative-card" style="height: 100%;">', unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-bottom: 30px; font-weight: 300;'>Curator's Notes</h3>", unsafe_allow_html=True)
+        st.markdown("<h3 style='margin-bottom: 20px;'>Store Updates</h3>", unsafe_allow_html=True)
         
         st.markdown("""
-            <div class="insight-item" style="border: none; border-bottom: 1px solid rgba(212,175,55,0.2); padding: 0 0 25px 0; border-radius: 0; background: transparent;">
-                <span class="badge-atelier">Observation No. 01</span>
-                <p style="color:var(--ink); margin-top:25px; font-size:1rem; line-height:1.8; font-weight: 300; letter-spacing: 0.02em;">
-                    The <b>Dairy</b> artisan collection reflects a high velocity in the current market cycle. Excellence in flow.
+            <div class="insight-item" style="border-bottom: 1px solid #EAEAEA; padding-bottom: 15px; margin-bottom: 15px;">
+                <span class="badge badge-warm" style="font-weight: bold;">Daily Note</span>
+                <p style="color: #1A1A1A; margin-top: 10px; font-size: 1rem; line-height: 1.5;">
+                    Milk and bread stocks are running low today. Consider ordering more before the evening rush.
                 </p>
             </div>
-            <div class="insight-item" style="border: none; padding: 25px 0 0 0; border-radius: 0; background: transparent;">
-                <span class="badge-atelier">Security Check</span>
-                <p style="color:var(--ink); margin-top:25px; font-size:1rem; line-height:1.8; font-weight: 300; letter-spacing: 0.02em;">
-                    Equilibrium achieved. Quality standards are being met across all boutique segments today.
+            <div class="insight-item">
+                <span class="badge badge-cool" style="font-weight: bold;">System Status</span>
+                <p style="color: #1A1A1A; margin-top: 10px; font-size: 1rem; line-height: 1.5;">
+                    All systems are running smoothly. Inventory numbers are up to date!
                 </p>
-            </div>
-            <div style="margin-top: 50px; font-family: 'Playfair Display'; font-style: italic; color: var(--gold); font-size: 1.2rem; opacity: 0.9;">
-                — RetailWise Atelier
             </div>
         """, unsafe_allow_html=True)
         
         st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Download Atelier Review"):
-            st.toast("Curating your bespoke executive review...")
+        if st.button("Download Store Report"):
+            st.toast("Generating your daily report...")
         st.markdown('</div>', unsafe_allow_html=True)
 
 # --- 2. AI ASSISTANT ---
 elif menu == "AI Assistant":
-    st.markdown("<h1 style='letter-spacing: -0.01em;'>Ai Assistant Manager</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: var(--clay); font-weight: 300; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.9rem; margin-bottom: 50px;'>Dialogue with the intelligence of your boutique.</p>", unsafe_allow_html=True)
+    st.markdown("<h1>AI Assistant Manager</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 40px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Talk to your smart assistant. You can ask questions about your stock, sales, and products using your voice or by typing.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     if "messages" not in st.session_state: st.session_state.messages = []
     
@@ -546,9 +548,13 @@ elif menu == "AI Assistant":
 elif menu == "Stock Management":
     st.markdown("<h1>Stock Management</h1>", unsafe_allow_html=True)
     
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Easily manage your store inventory. Upload a PDF invoice from your supplier, and the system will read it and update your stock automatically.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
     st.markdown('<div class="creative-card">', unsafe_allow_html=True)
     st.subheader("Invoice Digitization")
-    st.write("Upload a supplier invoice to automatically update your holdings.")
+    st.write("Upload a supplier invoice to automatically update your inventory.")
     up_pdf = st.file_uploader("Drop PDF Invoice here", type=['pdf'], label_visibility="collapsed")
     if up_pdf and st.button("Sync Inventory"):
         with st.status("Reading your document...") as status:
@@ -574,6 +580,9 @@ elif menu == "Stock Management":
 # --- 4. SHELF CHECK ---
 elif menu == "Shelf Check":
     st.markdown("<h1>Shelf Check</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Take a photo of your shelves using your camera. The app will analyze the photo to check for missing items or messy shelves!</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="creative-card">', unsafe_allow_html=True)
     c_img = st.camera_input("Capture Shelf View")
     if c_img:
@@ -594,6 +603,9 @@ elif menu == "Shelf Check":
 # --- 5. PRICING BRAIN ---
 elif menu == "Pricing Brain":
     st.markdown("<h1>Pricing Brain</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Get smart price suggestions to maximize profits. Select the current weather or events, and the AI will recommend the best prices for your items.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     st.markdown('<div class="creative-card">', unsafe_allow_html=True)
     c1, c2 = st.columns(2)
     with c1: cur_w = st.selectbox("Market Weather", ["Sunny", "Rainy", "Cold Wave", "Heat Wave"])
@@ -611,6 +623,9 @@ elif menu == "Pricing Brain":
 # --- 6. QUALITY GUARD ---
 elif menu == "Quality Guard":
     st.markdown("<h1>Quality Guard</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 20px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Check for items that are expiring soon. The system will suggest smart discounts so you can sell them before they go bad.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     if st.button("Scan Lifecycle"):
         lifecycle = analyze_expiry_and_pricing()
         if not lifecycle.empty:
@@ -632,8 +647,10 @@ elif menu == "Quality Guard":
 
 # --- 7. POS / BILLING ---
 elif menu == "POS / Billing":
-    st.markdown("<h1 style='letter-spacing: -0.01em;'>Billing point</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='color: var(--clay); font-weight: 300; text-transform: uppercase; letter-spacing: 0.1em; font-size: 0.9rem; margin-bottom: 50px;'>Orchestrate the exchange of value.</p>", unsafe_allow_html=True)
+    st.markdown("<h1>Billing Point</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 30px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Create bills for your customers quickly. Select items from your store, adjust quantities, and generate a final receipt.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
     
     l_reg, r_bill = st.columns([1, 1])
     
@@ -694,6 +711,36 @@ elif menu == "POS / Billing":
             if st.button("Commit to Ledger", use_container_width=True):
                 st.balloons(); st.session_state.cart = []; st.rerun()
         else:
-            st.markdown("<p style='text-align:center; color: var(--clay); font-style: italic; padding: 60px 0; font-size: 0.9rem; opacity: 0.6;'>Your boutique ledger is currently at equilibrium. Add an item to begin curation.</p>", unsafe_allow_html=True)
+            st.markdown("<p style='text-align:center; color: var(--clay); font-style: italic; padding: 60px 0; font-size: 0.9rem; opacity: 0.6;'>Your cart is empty. Add a product to start creating a bill.</p>", unsafe_allow_html=True)
         st.markdown('</div>', unsafe_allow_html=True)
+
+# --- 8. SMART ROUTE OPTIMIZER ---
+elif menu == "Smart Route Optimizer":
+    st.markdown("<h1>Smart Route Optimizer</h1>", unsafe_allow_html=True)
+    st.markdown('<div class="creative-card" style="padding: 15px 30px; margin-bottom: 30px;">', unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; font-size: 1.1rem; margin: 0;'>Plan the most efficient delivery routes for your grocery store. Save time and fuel by optimizing your delivery paths.</p>", unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+    
+    st.markdown('<div class="creative-card">', unsafe_allow_html=True)
+    st.markdown("<h3 style='margin-bottom: 15px;'>Route Planning & Logistics</h3>", unsafe_allow_html=True)
+    st.markdown("<p style='color: #1A1A1A; margin-bottom: 25px; line-height: 1.6;'>Our Smart Route Optimizer helps you manage multiple deliveries efficiently. By calculating the shortest and fastest paths considering real-time constraints, it ensures your store's deliveries reach customers fresh and on time.</p>", unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.image("https://images.unsplash.com/photo-1524661135-423995f22d0b?auto=format&fit=crop&q=80&w=600", caption="Optimize your delivery paths", use_container_width=True)
+    with col2:
+        st.image("https://images.unsplash.com/photo-1580674285054-bed31e145f59?auto=format&fit=crop&q=80&w=600", caption="Ensure timely and fresh deliveries", use_container_width=True)
+        
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.markdown('''
+        <div style="text-align: center;">
+            <a href="https://smart-route-optimization.streamlit.app/" target="_blank" style="text-decoration: none;">
+                <div style="background-color: var(--forest); color: #FFFFFF; padding: 18px 40px; border-radius: 4px; text-align: center; font-weight: 600; font-family: Outfit, sans-serif; display: inline-block; letter-spacing: 0.1em; transition: all 0.3s ease; box-shadow: 0 4px 15px rgba(44, 62, 80, 0.2);">
+                    OPEN SMART ROUTE OPTIMIZER 🚀
+                </div>
+            </a>
+        </div>
+    ''', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
+
 st.markdown('</div>', unsafe_allow_html=True) # End main-content-wrapper
